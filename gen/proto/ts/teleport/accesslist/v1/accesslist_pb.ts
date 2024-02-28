@@ -119,12 +119,39 @@ export interface AccessListSpec {
      */
     ownerGrants?: AccessListGrants;
     /**
-     * sub_access_lists is a list of access list ids that user
+     * member_access_lists is a list of access lists that user
      * membership should be fetched from
      *
-     * @generated from protobuf field: repeated string sub_access_lists = 12;
+     * @generated from protobuf field: repeated teleport.accesslist.v1.ParentAccessList member_access_lists = 12;
      */
-    subAccessLists: string[];
+    memberAccessLists: ParentAccessList[];
+    /**
+     * owner_access_lists is a list of access lists that owner
+     * membership should be fetched from
+     *
+     * @generated from protobuf field: repeated teleport.accesslist.v1.ParentAccessList owner_access_lists = 13;
+     */
+    ownerAccessLists: ParentAccessList[];
+}
+/**
+ * ParentAccessList contains information about access lists included
+ * as parents in an access list
+ *
+ * @generated from protobuf message teleport.accesslist.v1.ParentAccessList
+ */
+export interface ParentAccessList {
+    /**
+     * name is the id of the parent access list
+     *
+     * @generated from protobuf field: string name = 1;
+     */
+    name: string;
+    /**
+     * title is the title of the parent access list
+     *
+     * @generated from protobuf field: string title = 2;
+     */
+    title: string;
 }
 /**
  * AccessListOwner is an owner of an access list.
@@ -599,8 +626,13 @@ class AccessListSpec$Type extends MessageType<AccessListSpec> {
             { no: 9, name: "membership", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 10, name: "ownership", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 11, name: "owner_grants", kind: "message", T: () => AccessListGrants },
+<<<<<<< HEAD
             { no: 12, name: "sub_access_lists", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ }
 >>>>>>> 8ec5e2d68d (make grpc)
+=======
+            { no: 12, name: "member_access_lists", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => ParentAccessList },
+            { no: 13, name: "owner_access_lists", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => ParentAccessList }
+>>>>>>> fa58f2a9cd (check if user is in specified sub-accesslists)
         ]);
     }
     create(value?: PartialMessage<AccessListSpec>): AccessListSpec {
@@ -612,8 +644,13 @@ class AccessListSpec$Type extends MessageType<AccessListSpec> {
 =======
         message.membership = "";
         message.ownership = "";
+<<<<<<< HEAD
         message.subAccessLists = [];
 >>>>>>> 8ec5e2d68d (make grpc)
+=======
+        message.memberAccessLists = [];
+        message.ownerAccessLists = [];
+>>>>>>> fa58f2a9cd (check if user is in specified sub-accesslists)
         if (value !== undefined)
             reflectionMergePartial<AccessListSpec>(this, message, value);
         return message;
@@ -647,8 +684,11 @@ class AccessListSpec$Type extends MessageType<AccessListSpec> {
                 case /* teleport.accesslist.v1.AccessListGrants owner_grants */ 11:
                     message.ownerGrants = AccessListGrants.internalBinaryRead(reader, reader.uint32(), options, message.ownerGrants);
                     break;
-                case /* repeated string sub_access_lists */ 12:
-                    message.subAccessLists.push(reader.string());
+                case /* repeated teleport.accesslist.v1.ParentAccessList member_access_lists */ 12:
+                    message.memberAccessLists.push(ParentAccessList.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* repeated teleport.accesslist.v1.ParentAccessList owner_access_lists */ 13:
+                    message.ownerAccessLists.push(ParentAccessList.internalBinaryRead(reader, reader.uint32(), options));
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -686,9 +726,12 @@ class AccessListSpec$Type extends MessageType<AccessListSpec> {
         /* teleport.accesslist.v1.AccessListGrants owner_grants = 11; */
         if (message.ownerGrants)
             AccessListGrants.internalBinaryWrite(message.ownerGrants, writer.tag(11, WireType.LengthDelimited).fork(), options).join();
-        /* repeated string sub_access_lists = 12; */
-        for (let i = 0; i < message.subAccessLists.length; i++)
-            writer.tag(12, WireType.LengthDelimited).string(message.subAccessLists[i]);
+        /* repeated teleport.accesslist.v1.ParentAccessList member_access_lists = 12; */
+        for (let i = 0; i < message.memberAccessLists.length; i++)
+            ParentAccessList.internalBinaryWrite(message.memberAccessLists[i], writer.tag(12, WireType.LengthDelimited).fork(), options).join();
+        /* repeated teleport.accesslist.v1.ParentAccessList owner_access_lists = 13; */
+        for (let i = 0; i < message.ownerAccessLists.length; i++)
+            ParentAccessList.internalBinaryWrite(message.ownerAccessLists[i], writer.tag(13, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -699,6 +742,61 @@ class AccessListSpec$Type extends MessageType<AccessListSpec> {
  * @generated MessageType for protobuf message teleport.accesslist.v1.AccessListSpec
  */
 export const AccessListSpec = new AccessListSpec$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ParentAccessList$Type extends MessageType<ParentAccessList> {
+    constructor() {
+        super("teleport.accesslist.v1.ParentAccessList", [
+            { no: 1, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "title", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ParentAccessList>): ParentAccessList {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.name = "";
+        message.title = "";
+        if (value !== undefined)
+            reflectionMergePartial<ParentAccessList>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ParentAccessList): ParentAccessList {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string name */ 1:
+                    message.name = reader.string();
+                    break;
+                case /* string title */ 2:
+                    message.title = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ParentAccessList, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string name = 1; */
+        if (message.name !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.name);
+        /* string title = 2; */
+        if (message.title !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.title);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message teleport.accesslist.v1.ParentAccessList
+ */
+export const ParentAccessList = new ParentAccessList$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class AccessListOwner$Type extends MessageType<AccessListOwner> {
     constructor() {

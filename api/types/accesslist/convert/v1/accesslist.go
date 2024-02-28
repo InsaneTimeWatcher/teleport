@@ -92,11 +92,26 @@ func FromProto(msg *accesslistv1.AccessList, opts ...AccessListOption) (*accessl
 	if msg.Spec.Audit.NextAuditDate != nil {
 		nextAuditDate = msg.Spec.Audit.NextAuditDate.AsTime()
 	}
-
 	var memberCount *uint32
 	if msg.Status != nil && msg.Status.MemberCount != nil {
 		memberCount = new(uint32)
 		*memberCount = *msg.Status.MemberCount
+	}
+
+	var parentMemberAccessLists []accesslist.ParentAccessList
+	for _, al := range msg.Spec.MemberAccessLists {
+		parentMemberAccessLists = append(parentMemberAccessLists, accesslist.ParentAccessList{
+			Name:  al.Name,
+			Title: al.Title,
+		})
+	}
+
+	var parentOwnerAccessLists []accesslist.ParentAccessList
+	for _, al := range msg.Spec.OwnerAccessLists {
+		parentOwnerAccessLists = append(parentOwnerAccessLists, accesslist.ParentAccessList{
+			Name:  al.Name,
+			Title: al.Title,
+		})
 	}
 
 	accessList, err := accesslist.NewAccessList(headerv1.FromMetadataProto(msg.Header.Metadata), accesslist.Spec{
@@ -120,7 +135,9 @@ func FromProto(msg *accesslistv1.AccessList, opts ...AccessListOption) (*accessl
 			Roles:  msg.Spec.Grants.Roles,
 			Traits: traitv1.FromProto(msg.Spec.Grants.Traits),
 		},
-		OwnerGrants: ownerGrants,
+		OwnerGrants:       ownerGrants,
+		OwnerAccessLists:  parentOwnerAccessLists,
+		MemberAccessLists: parentMemberAccessLists,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -177,6 +194,20 @@ func ToProto(accessList *accesslist.AccessList) *accesslistv1.AccessList {
 		memberCount = new(uint32)
 		*memberCount = *accessList.Status.MemberCount
 	}
+	var parentMemberAccessLists []*accesslistv1.ParentAccessList
+	for _, al := range accessList.Spec.MemberAccessLists {
+		parentMemberAccessLists = append(parentMemberAccessLists, &accesslistv1.ParentAccessList{
+			Name:  al.Name,
+			Title: al.Title,
+		})
+	}
+	var parentOwnerAccessLists []*accesslistv1.ParentAccessList
+	for _, al := range accessList.Spec.OwnerAccessLists {
+		parentOwnerAccessLists = append(parentOwnerAccessLists, &accesslistv1.ParentAccessList{
+			Name:  al.Name,
+			Title: al.Title,
+		})
+	}
 
 	return &accesslistv1.AccessList{
 		Header: headerv1.ToResourceHeaderProto(accessList.ResourceHeader),
@@ -206,7 +237,9 @@ func ToProto(accessList *accesslist.AccessList) *accesslistv1.AccessList {
 				Roles:  accessList.Spec.Grants.Roles,
 				Traits: traitv1.ToProto(accessList.Spec.Grants.Traits),
 			},
-			OwnerGrants: ownerGrants,
+			OwnerGrants:       ownerGrants,
+			MemberAccessLists: parentMemberAccessLists,
+			OwnerAccessLists:  parentOwnerAccessLists,
 		},
 		Status: &accesslistv1.AccessListStatus{
 			MemberCount: memberCount,

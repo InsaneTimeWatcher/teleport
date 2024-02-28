@@ -1624,13 +1624,23 @@ Outer:
 // SystemAnnotations calculates the system annotations for a pending
 // access request.
 func (m *RequestValidator) SystemAnnotations() map[string][]string {
+	roles, _ := FetchRoles(m.userState.GetRoles(), m.getter, m.userState.GetTraits())
 	annotations := make(map[string][]string)
+
 	for k, va := range m.Annotations.Allow {
 		var filtered []string
+	outer:
 		for _, v := range va {
-			if !slices.Contains(m.Annotations.Deny[k], v) {
-				filtered = append(filtered, v)
+			for _, role := range roles {
+				if !slices.Contains(role.GetAccessRequestConditions(types.Allow).Annotations[k], v) {
+					continue outer
+				}
 			}
+			if slices.Contains(m.Annotations.Deny[k], v) {
+				continue
+			}
+			filtered = append(filtered, v)
+
 		}
 		if len(filtered) == 0 {
 			continue

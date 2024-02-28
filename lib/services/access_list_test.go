@@ -269,6 +269,12 @@ func TestIsAccessListOwner(t *testing.T) {
 type testMembersAndLockGetter struct {
 	members map[string]map[string]*accesslist.AccessListMember
 	locks   map[string]types.Lock
+	lists   map[string]*accesslist.AccessList
+}
+
+// GetAccessList implements AccessListGetter.
+func (t *testMembersAndLockGetter) GetAccessList(_ context.Context, name string) (*accesslist.AccessList, error) {
+	return t.lists[name], nil
 }
 
 // ListAccessListMembers returns a paginated list of all access list members.
@@ -335,12 +341,29 @@ func requireAccessDenied(t require.TestingT, err error, i ...interface{}) {
 }
 
 func TestIsAccessListMemberChecker(t *testing.T) {
+	childAccessList, err := accesslist.NewAccessList(header.Metadata{
+		Name: "child",
+	}, accesslist.Spec{
+		Title: "hello",
+
+		Grants: accesslist.Grants{
+			Roles: []string{"grole1", "grole2"},
+			Traits: map[string][]string{
+				"gtrait1": {"gvalue1", "gvalue2"},
+				"gtrait2": {"gvalue3", "gvalue4"},
+			},
+		},
+	})
+	require.NoError(t, err)
+
 	tests := []struct {
 		name             string
 		identity         tlsca.Identity
 		memberCtx        context.Context
 		currentTime      time.Time
 		locks            map[string]types.Lock
+		subAccessLists   map[string]accesslist.AccessList
+		subAccessList    *accesslist.AccessList
 		errAssertionFunc require.ErrorAssertionFunc
 	}{
 		{
@@ -467,6 +490,21 @@ func TestIsAccessListMemberChecker(t *testing.T) {
 			currentTime:      time.Date(2023, 2, 1, 0, 0, 0, 0, time.UTC),
 			errAssertionFunc: requireAccessDenied,
 		},
+		{
+			name: "is member via recursive access list",
+			identity: tlsca.Identity{
+				Username: member1,
+				Groups:   []string{"mrole1", "mrole2"},
+				Traits: map[string][]string{
+					"mtrait1": {"mvalue1", "mvalue2"},
+					"mtrait2": {"mvalue3", "mvalue4"},
+				},
+			},
+			membership:       accesslist.InclusionExplicit,
+			currentTime:      time.Date(2023, 2, 1, 0, 0, 0, 0, time.UTC),
+			errAssertionFunc: require.NoError,
+			subAccessList:    childAccessList,
+		},
 	}
 
 	for _, test := range tests {
@@ -479,6 +517,10 @@ func TestIsAccessListMemberChecker(t *testing.T) {
 			accessList := newAccessList(t)
 			members := newAccessListMembers(t)
 
+			// if test.subAccessLists != nil {
+			// 	accessList.Spec.SubAccessLists = []string{test.subAccessList.GetName()}
+			// }
+
 			memberMap := map[string]map[string]*accesslist.AccessListMember{}
 			for _, member := range members {
 				accessListName := member.Spec.AccessList
@@ -487,9 +529,10 @@ func TestIsAccessListMemberChecker(t *testing.T) {
 				}
 				memberMap[accessListName][member.Spec.Name] = member
 			}
-			getter := &testMembersAndLockGetter{members: memberMap, locks: test.locks}
 
-			checker := NewAccessListMembershipChecker(clockwork.NewFakeClockAt(test.currentTime), getter, getter)
+			getter := &testMembersAndLockGetter{members: memberMap, locks: test.locks, lists: nil}
+
+			checker := NewAccessListMembershipChecker(clockwork.NewFakeClockAt(test.currentTime), getter, getter, getter)
 			test.errAssertionFunc(t, checker.IsAccessListMember(ctx, test.identity, accessList))
 		})
 	}
