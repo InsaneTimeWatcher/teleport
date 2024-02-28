@@ -118,6 +118,13 @@ export interface AccessListSpec {
      * @generated from protobuf field: teleport.accesslist.v1.AccessListGrants owner_grants = 11;
      */
     ownerGrants?: AccessListGrants;
+    /**
+     * sub_access_lists is a list of access list ids that user
+     * membership should be fetched from
+     *
+     * @generated from protobuf field: repeated string sub_access_lists = 12;
+     */
+    subAccessLists: string[];
 }
 /**
  * AccessListOwner is an owner of an access list.
@@ -586,7 +593,14 @@ class AccessListSpec$Type extends MessageType<AccessListSpec> {
             { no: 5, name: "ownership_requires", kind: "message", T: () => AccessListRequires },
             { no: 6, name: "grants", kind: "message", T: () => AccessListGrants },
             { no: 8, name: "title", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+<<<<<<< HEAD
             { no: 11, name: "owner_grants", kind: "message", T: () => AccessListGrants }
+=======
+            { no: 9, name: "membership", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 10, name: "ownership", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 11, name: "owner_grants", kind: "message", T: () => AccessListGrants },
+            { no: 12, name: "sub_access_lists", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ }
+>>>>>>> 8ec5e2d68d (make grpc)
         ]);
     }
     create(value?: PartialMessage<AccessListSpec>): AccessListSpec {
@@ -594,6 +608,12 @@ class AccessListSpec$Type extends MessageType<AccessListSpec> {
         message.description = "";
         message.owners = [];
         message.title = "";
+<<<<<<< HEAD
+=======
+        message.membership = "";
+        message.ownership = "";
+        message.subAccessLists = [];
+>>>>>>> 8ec5e2d68d (make grpc)
         if (value !== undefined)
             reflectionMergePartial<AccessListSpec>(this, message, value);
         return message;
@@ -626,6 +646,9 @@ class AccessListSpec$Type extends MessageType<AccessListSpec> {
                     break;
                 case /* teleport.accesslist.v1.AccessListGrants owner_grants */ 11:
                     message.ownerGrants = AccessListGrants.internalBinaryRead(reader, reader.uint32(), options, message.ownerGrants);
+                    break;
+                case /* repeated string sub_access_lists */ 12:
+                    message.subAccessLists.push(reader.string());
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -663,6 +686,9 @@ class AccessListSpec$Type extends MessageType<AccessListSpec> {
         /* teleport.accesslist.v1.AccessListGrants owner_grants = 11; */
         if (message.ownerGrants)
             AccessListGrants.internalBinaryWrite(message.ownerGrants, writer.tag(11, WireType.LengthDelimited).fork(), options).join();
+        /* repeated string sub_access_lists = 12; */
+        for (let i = 0; i < message.subAccessLists.length; i++)
+            writer.tag(12, WireType.LengthDelimited).string(message.subAccessLists[i]);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
