@@ -25,6 +25,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 
@@ -38,9 +39,11 @@ import (
 	"github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/authz"
 	"github.com/gravitational/teleport/lib/defaults"
+	"github.com/gravitational/teleport/lib/httplib"
 	"github.com/gravitational/teleport/lib/jwt"
 	"github.com/gravitational/teleport/lib/reversetunnelclient"
 	"github.com/gravitational/teleport/lib/services"
+	srvapp "github.com/gravitational/teleport/lib/srv/app"
 	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/teleport/lib/utils"
 )
@@ -56,6 +59,8 @@ type transportConfig struct {
 	clusterName  string
 	log          logrus.FieldLogger
 	clock        clockwork.Clock
+
+	appConnectionsHandler *srvapp.ConnectionsHandler
 }
 
 // Check validates configuration.
@@ -158,6 +163,11 @@ func (t *transport) RoundTrip(r *http.Request) (*http.Response, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	// var err error
+	// resp := &http.Response{}
+	t.c.log.Errorf("======= Recording response! 🎉 %+v", r)
+	respRecorder := httplib.NewResponseStatusRecorder(&httplib.ResponseStatusRecorder{})
+	t.c.appConnectionsHandler.ServeHTTP(respRecorder.ResponseWriter, r)
 	// When proxying app in leaf cluster, the app will have PublicAddr
 	// possibly unreachable to the clients connecting to the root cluster.
 	// We want to rewrite any redirects to that PublicAddr to equivalent redirect for root cluster.
@@ -340,6 +350,7 @@ func (t *transport) DialContext(ctx context.Context, _, _ string) (conn net.Conn
 	t.mu.Lock()
 	if len(t.c.servers) == 0 {
 		defer t.mu.Unlock()
+		os.Exit(1)
 		return nil, trace.ConnectionProblem(nil, "no application servers remaining to connect")
 	}
 	servers := make([]types.AppServer, len(t.c.servers))
@@ -378,6 +389,7 @@ func (t *transport) DialContext(ctx context.Context, _, _ string) (conn net.Conn
 		return conn, trace.Wrap(err)
 	}
 
+	os.Exit(1)
 	return nil, trace.ConnectionProblem(nil, "no application servers remaining to connect")
 }
 
