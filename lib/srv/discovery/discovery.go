@@ -1327,8 +1327,45 @@ func (s *Server) getAllGCPServerFetchers() []server.Fetcher {
 	return allFetchers
 }
 
+func (s *Server) acquireDiscoveryGroup() (func(), error) {
+	const (
+		semaphoreExpiration = time.Minute
+	)
+
+	// This SemaphoreLock ensures only one instance per DiscoveryGroup is running
+	lease, err := services.AcquireSemaphoreLock(s.ctx, services.SemaphoreLockConfig{
+		Service: s.Config.AccessPoint,
+		Expiry:  time.Minute,
+		Params: types.AcquireSemaphoreRequest{
+			SemaphoreKind: types.SemaphoreKindDiscoveryServiceGroup,
+			SemaphoreName: s.DiscoveryGroup,
+			MaxLeases:     1,
+			Expires:       s.clock.Now().Add(semaphoreExpiration),
+			Holder:        s.ServerID,
+		},
+		Clock: s.clock,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return func() {
+		lease.Stop()
+		if err := lease.Wait(); err != nil {
+			s.Log.WithError(err).Warn("error cleaning up semaphore")
+		}
+	}, nil
+}
+
 // Start starts the discovery service.
 func (s *Server) Start() error {
+	if s.DiscoveryGroup != "" {
+		releaseFn, err := s.acquireDiscoveryGroup()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer releaseFn()
+	}
+
 	if s.ec2Watcher != nil {
 		go s.handleEC2Discovery()
 		go s.reconciler.run(s.ctx)
