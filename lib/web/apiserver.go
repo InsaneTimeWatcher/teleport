@@ -2790,7 +2790,7 @@ func (h *Handler) clusterUnifiedResourcesGet(w http.ResponseWriter, request *htt
 				return nil, trace.Wrap(err)
 			}
 
-			unifiedResources = append(unifiedResources, ui.MakeServer(site.GetName(), r, logins))
+			unifiedResources = append(unifiedResources, ui.MakeServer(site.GetName(), r, logins, enriched.RequiresRequest))
 		case types.DatabaseServer:
 			if !hasFetchedDBUsersAndNames {
 				dbNames, dbUsers, err = getDatabaseUsersAndNames(accessChecker)
@@ -2910,7 +2910,7 @@ func (h *Handler) clusterNodesGet(w http.ResponseWriter, r *http.Request, p http
 			return nil, trace.Wrap(err)
 		}
 
-		uiServers = append(uiServers, ui.MakeServer(site.GetName(), server, logins))
+		uiServers = append(uiServers, ui.MakeServer(site.GetName(), server, logins, resource.RequiresRequest))
 	}
 
 	return listResourcesGetResponse{

@@ -58,7 +58,8 @@ type Server struct {
 	// SSHLogins is the list of logins this user can use on this server
 	SSHLogins []string `json:"sshLogins"`
 	// AWS contains metadata for instances hosted in AWS.
-	AWS *AWSMetadata `json:"aws,omitempty"`
+	AWS             *AWSMetadata `json:"aws,omitempty"`
+	RequiresRequest bool         `json:"requiresRequest,omitempty"`
 }
 
 // AWSMetadata describes the AWS metadata for instances hosted in AWS.
@@ -102,7 +103,7 @@ func (s sortedLabels) Swap(i, j int) {
 }
 
 // MakeServer creates a server object for the web ui
-func MakeServer(clusterName string, server types.Server, logins []string) Server {
+func MakeServer(clusterName string, server types.Server, logins []string, requiresRequest bool) Server {
 	serverLabels := server.GetStaticLabels()
 	serverCmdLabels := server.GetCmdLabels()
 	uiLabels := makeLabels(serverLabels, transformCommandLabels(serverCmdLabels))

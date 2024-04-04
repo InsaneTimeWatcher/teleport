@@ -445,5 +445,5 @@ func (h *Handler) handleNodeCreate(w http.ResponseWriter, r *http.Request, p htt
 		return nil, trace.Wrap(err)
 	}
 
-	return ui.MakeServer(site.GetName(), server, logins), nil
+	return ui.MakeServer(site.GetName(), server, logins, false), nil
 }

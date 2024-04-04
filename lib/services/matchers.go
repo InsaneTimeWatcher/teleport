@@ -285,6 +285,9 @@ type MatchResourceFilter struct {
 	// It will filter out any kind not present in the list. If the list is not present or empty
 	// then all kinds are valid and will be returned (still subject to other included filters)
 	Kinds []string
+	// CheckBaseAccess is used to check if a user has access with their base context, or extended
+	// context only when doing a SearchAsRoles request.
+	CheckBaseAccess bool
 }
 
 // IsSimple is used to short-circuit matching when a filter doesn't specify anything more

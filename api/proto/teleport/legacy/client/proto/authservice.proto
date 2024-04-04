@@ -1866,6 +1866,8 @@ message PaginatedResource {
 
   // Logins allowed for the included resource. Only to be populated for SSH and Desktops.
   repeated string Logins = 13 [(gogoproto.jsontag) = "logins,omitempty"];
+  bool RequiresRequest = 14 [(gogoproto.jsontag) = "requires_request,omitempty"];
+  string ResourceName = 15 [(gogoproto.jsontag) = "resource_name,omitempty"];
 
   reserved 4;
   reserved "KubeService";

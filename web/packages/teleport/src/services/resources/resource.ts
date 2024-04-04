@@ -40,6 +40,7 @@ class ResourceService {
     return api
       .get(cfg.getUnifiedResourcesUrl(clusterId, params), signal)
       .then(json => {
+        console.log({ json });
         const items = json?.items || [];
 
         return {
