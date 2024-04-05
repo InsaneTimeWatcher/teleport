@@ -119,8 +119,16 @@ func (process *TeleportProcess) initDiscoveryService() error {
 
 	process.BroadcastEvent(Event{Name: DiscoveryReady, Payload: nil})
 
-	if err := discoveryService.Start(); err != nil {
-		return trace.Wrap(err)
+	for {
+		if err := discoveryService.Start(); err != nil {
+			if trace.IsLimitExceeded(err) {
+				logger.WarnContext(process.ExitContext(), "Discovery service is waiting on group lock.", "error", err)
+				time.Sleep(1 * time.Minute)
+				continue
+			}
+			return trace.Wrap(err)
+		}
+		break
 	}
 	logger.InfoContext(process.ExitContext(), "Discovery service has successfully started")
 

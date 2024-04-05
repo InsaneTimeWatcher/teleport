@@ -261,6 +261,17 @@ type Server struct {
 	ctx context.Context
 	// cancelfn is used with ctx when stopping the discovery server
 	cancelfn context.CancelFunc
+
+	// stopServerOnce stops the server
+	// The server can be cancelled in multiple ways:
+	// - when the server starts the shutdown process
+	// - when the discovery group lock is lost
+	// This method ensures we only stop the server once.
+	stopServerOnce sync.Once
+
+	// releaseGroupLockFn is used to release the lock of the current DiscoveryGroup.
+	releaseGroupLockFn func()
+
 	// nodeWatcher is a node watcher.
 	nodeWatcher *services.NodeWatcher
 
@@ -1327,11 +1338,7 @@ func (s *Server) getAllGCPServerFetchers() []server.Fetcher {
 	return allFetchers
 }
 
-func (s *Server) acquireDiscoveryGroup() (func(), error) {
-	const (
-		semaphoreExpiration = time.Minute
-	)
-
+func (s *Server) acquireDiscoveryGroup() error {
 	// This SemaphoreLock ensures only one instance per DiscoveryGroup is running
 	lease, err := services.AcquireSemaphoreLock(s.ctx, services.SemaphoreLockConfig{
 		Service: s.Config.AccessPoint,
@@ -1340,30 +1347,48 @@ func (s *Server) acquireDiscoveryGroup() (func(), error) {
 			SemaphoreKind: types.SemaphoreKindDiscoveryServiceGroup,
 			SemaphoreName: s.DiscoveryGroup,
 			MaxLeases:     1,
-			Expires:       s.clock.Now().Add(semaphoreExpiration),
 			Holder:        s.ServerID,
 		},
-		Clock: s.clock,
+		Clock: s.Config.clock,
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		if strings.Contains(err.Error(), teleport.MaxLeases) {
+			return trace.LimitExceeded("only one discovery service with discovery group %q can run at the same time", s.DiscoveryGroup)
+		}
+
+		return trace.Wrap(err)
 	}
-	return func() {
+
+	go func() {
+		for {
+			select {
+			case <-lease.Renewed():
+				continue
+			case <-lease.Done():
+				s.Log.WithError(lease.Wait()).Warnf("discovery group %q lock was lost", s.DiscoveryGroup)
+				// Lease was lost, stopping the server
+				s.Stop()
+				return
+			}
+		}
+	}()
+
+	s.releaseGroupLockFn = func() {
 		lease.Stop()
 		if err := lease.Wait(); err != nil {
 			s.Log.WithError(err).Warn("error cleaning up semaphore")
 		}
-	}, nil
+	}
+
+	return nil
 }
 
 // Start starts the discovery service.
 func (s *Server) Start() error {
 	if s.DiscoveryGroup != "" {
-		releaseFn, err := s.acquireDiscoveryGroup()
-		if err != nil {
+		if err := s.acquireDiscoveryGroup(); err != nil {
 			return trace.Wrap(err)
 		}
-		defer releaseFn()
 	}
 
 	if s.ec2Watcher != nil {
@@ -1616,21 +1641,27 @@ func (s *Server) discardUnsupportedMatchers(m *Matchers) {
 
 // Stop stops the discovery service.
 func (s *Server) Stop() {
-	s.cancelfn()
-	if s.ec2Watcher != nil {
-		s.ec2Watcher.Stop()
-	}
-	if s.azureWatcher != nil {
-		s.azureWatcher.Stop()
-	}
-	if s.gcpWatcher != nil {
-		s.gcpWatcher.Stop()
-	}
-	if s.dynamicMatcherWatcher != nil {
-		if err := s.dynamicMatcherWatcher.Close(); err != nil {
-			s.Log.Warnf("dynamic matcher watcher closing error: ", trace.Wrap(err))
+	s.stopServerOnce.Do(func() {
+		s.cancelfn()
+		if s.ec2Watcher != nil {
+			s.ec2Watcher.Stop()
 		}
-	}
+		if s.azureWatcher != nil {
+			s.azureWatcher.Stop()
+		}
+		if s.gcpWatcher != nil {
+			s.gcpWatcher.Stop()
+		}
+		if s.dynamicMatcherWatcher != nil {
+			if err := s.dynamicMatcherWatcher.Close(); err != nil {
+				s.Log.Warnf("dynamic matcher watcher closing error: ", trace.Wrap(err))
+			}
+		}
+
+		if s.releaseGroupLockFn != nil {
+			s.releaseGroupLockFn()
+		}
+	})
 }
 
 // Wait will block while the server is running.
