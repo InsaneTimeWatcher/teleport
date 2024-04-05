@@ -20,23 +20,23 @@ package utils
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 
 	"github.com/gravitational/trace"
-
-	"github.com/gravitational/teleport"
 )
 
 // GetAndReplaceRequestBody returns the request body and replaces the drained
 // body reader with io.NopCloser allowing for further body processing by http
 // transport.
+// If memory exhaustion is a concern, it is the caller's responsibility to wrap
+// req.Body in an [io.LimitReader].
 func GetAndReplaceRequestBody(req *http.Request) ([]byte, error) {
 	if req.Body == nil || req.Body == http.NoBody {
 		return []byte{}, nil
 	}
-	// req.Body is closed during tryDrainBody call.
-	payload, err := tryDrainBody(req.Body)
+	payload, err := io.ReadAll(req.Body)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -48,12 +48,14 @@ func GetAndReplaceRequestBody(req *http.Request) ([]byte, error) {
 
 // GetAndReplaceResponseBody returns the response body and replaces the drained
 // body reader with io.NopCloser allowing for further body processing.
+// If memory exhaustion is a concern, it is the caller's responsibility to wrap
+// response.Body in an [io.LimitReader].
 func GetAndReplaceResponseBody(response *http.Response) ([]byte, error) {
 	if response.Body == nil {
 		return []byte{}, nil
 	}
 
-	payload, err := tryDrainBody(response.Body)
+	payload, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -64,30 +66,15 @@ func GetAndReplaceResponseBody(response *http.Response) ([]byte, error) {
 
 // ReplaceRequestBody drains the old request body and replaces it with a new one.
 func ReplaceRequestBody(req *http.Request, newBody io.ReadCloser) error {
-	if _, err := tryDrainBody(req.Body); err != nil {
+	// drain and discard the request body to allow connection reuse.
+	// No need to enforce a max request size, nor rely on callers to do so,
+	// since we do not buffer the entire request body.
+	_, err := io.Copy(io.Discard, req.Body)
+	if err != nil && !errors.Is(err, io.EOF) {
 		return trace.Wrap(err)
 	}
 	req.Body = newBody
 	return nil
-}
-
-// tryDrainBody tries to drain and close the body, returning the read bytes.
-// It may fail to completely drain the body if the size of the body exceeds MaxHTTPRequestSize.
-func tryDrainBody(b io.ReadCloser) (payload []byte, err error) {
-	if b == nil {
-		return nil, nil
-	}
-	defer func() {
-		if closeErr := b.Close(); closeErr != nil {
-			err = trace.NewAggregate(err, closeErr)
-		}
-	}()
-	payload, err = ReadAtMost(b, teleport.MaxHTTPRequestSize)
-	if err != nil {
-		err = trace.Wrap(err)
-		return
-	}
-	return
 }
 
 // RenameHeader moves all values from the old header key to the new header key.
